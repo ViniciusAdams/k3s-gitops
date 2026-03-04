@@ -9,6 +9,8 @@ spec:
     repoURL: https://github.com/ViniciusAdams/k3s-gitops.git
     targetRevision: main
     path: apps
+    directory:
+      recurse: true
   destination:
     server: https://kubernetes.default.svc
     namespace: default
