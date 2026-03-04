@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opensearch
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://opensearch-project.github.io/helm-charts/
+    chart: opensearch
+    targetRevision: 2.21.0   
+      values: |
+        replicas: 1
+
+        extraEnvs:
+          - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+            value: "ChangeThisLater123!"
+
+        persistence:
+          enabled: false
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: opensearch
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
