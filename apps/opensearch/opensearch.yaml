@@ -12,6 +12,9 @@ spec:
     values: |
       replicas: 1
 
+      clusterName: "opensearch-single"
+      nodeGroup: "master"
+
       extraEnvs:
         - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
           value: "ChangeThisLater123!"
@@ -22,7 +25,10 @@ spec:
       resources:
         requests:
           cpu: "500m"
-          memory: "1Gi"
+          memory: "2Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
 
   destination:
     server: https://kubernetes.default.svc
