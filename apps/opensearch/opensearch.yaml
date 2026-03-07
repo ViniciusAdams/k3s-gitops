@@ -9,31 +9,48 @@ spec:
     repoURL: https://opensearch-project.github.io/helm-charts/
     chart: opensearch
     targetRevision: 2.21.0
-    values: |
-      replicas: 1
+    helm:
+      valueFiles: []
+      values: |
+        clusterName: opensearch-cluster
 
-      clusterName: "opensearch-single"
-      nodeGroup: "master"
+        nodeGroup: master
+        singleNode: true
 
-      extraEnvs:
-        - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-          value: "ChangeThisLater123!"
+        replicas: 1
 
-      persistence:
-        enabled: false
+        opensearchJavaOpts: "-Xms512m -Xmx512m"
 
-      resources:
-        requests:
-          cpu: "500m"
-          memory: "2Gi"
-        limits:
-          cpu: "1"
-          memory: "2Gi"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "1Gi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
 
+        persistence:
+          enabled: false
+
+        extraEnvs:
+          - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+            value: "ChangeThisLater123!"
+
+        service:
+          type: ClusterIP
+
+        securityConfig:
+          enabled: false
+
+        config:
+          opensearch.yml: |
+            cluster.name: opensearch-cluster
+            network.host: 0.0.0.0
+            discovery.type: single-node
+            plugins.security.disabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: opensearch
-
   syncPolicy:
     automated:
       prune: true
