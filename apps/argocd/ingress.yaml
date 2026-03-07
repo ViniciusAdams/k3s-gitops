@@ -5,7 +5,6 @@ metadata:
   namespace: argocd
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
-    traefik.ingress.kubernetes.io/service.serversscheme: http
 spec:
   ingressClassName: traefik
   rules:
@@ -18,4 +17,4 @@ spec:
               service:
                 name: argocd-server
                 port:
-                  number: 80  # <-- match HTTP port
+                  number: 80
