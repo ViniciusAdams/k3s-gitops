@@ -32,7 +32,7 @@ spec:
             opensearch.hosts: [ "https://opensearch-cluster-master:9200" ]
             opensearch.ssl.verificationMode: none
             opensearch.username: "admin"
-            opensearch.password: "MyStrongTempPassword123!"
+            opensearch.password: "admin"
 
         resources:
           requests:
