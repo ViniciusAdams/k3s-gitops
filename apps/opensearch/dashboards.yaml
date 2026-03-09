@@ -11,6 +11,9 @@ spec:
     targetRevision: 2.13.0
     helm:
       values: |
+        image:
+          tag: "2.8.0"
+
         replicaCount: 1
 
         service:
