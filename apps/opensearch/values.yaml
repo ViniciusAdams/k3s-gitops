@@ -14,8 +14,15 @@ resources:
     cpu: "1000m"
     memory: "1Gi"
 
+image:
+  tag: "2.8.0"
+
 persistence:
-  enabled: false
+  enabled: true
+  storageClass: local-path
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
 
 extraEnvs:
   - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
