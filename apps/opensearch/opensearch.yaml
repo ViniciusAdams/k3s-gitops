@@ -30,7 +30,11 @@ spec:
             memory: "1Gi"
 
         persistence:
-          enabled: false
+          enabled: true
+          storageClass: local-path
+          accessModes:
+            - ReadWriteOnce
+          size: 20Gi
 
         extraEnvs:
           - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
