@@ -22,6 +22,11 @@ spec:
 
         opensearchHosts: "https://opensearch-cluster-master:9200"
 
+        secretMounts:
+          - name: opensearch-certs
+            secretName: opensearch-certs
+            path: /usr/share/opensearch-dashboards/config/certs
+
         config:
           opensearch_dashboards.yml: |
             opensearch.hosts: [ "https://opensearch-cluster-master:9200" ]
