@@ -24,10 +24,6 @@ persistence:
     - ReadWriteOnce
   size: 20Gi
 
-extraEnvs:
-  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-    value: "MyStrongTempPassword123!"
-
 service:
   type: ClusterIP
 
