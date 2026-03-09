@@ -5,7 +5,6 @@ metadata:
   namespace: argocd
 spec:
   project: default
-
   source:
     repoURL: https://opensearch-project.github.io/helm-charts/
     chart: opensearch-dashboards
@@ -18,7 +17,14 @@ spec:
           type: ClusterIP
           port: 5601
 
-        opensearchHosts: "http://opensearch-cluster-master:9200"
+        opensearchHosts: "https://opensearch-cluster-master:9200"
+
+        config:
+          opensearch_dashboards.yml: |
+            opensearch.hosts: [ "https://opensearch-cluster-master:9200" ]
+            opensearch.ssl.verificationMode: none
+            opensearch.username: "admin"
+            opensearch.password: "MyStrongTempPassword123!"
 
         resources:
           requests:
@@ -36,6 +42,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
-
     syncOptions:
       - CreateNamespace=true
