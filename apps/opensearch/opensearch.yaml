@@ -1,41 +1,52 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: opensearch-dashboards
+  name: opensearch
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://opensearch-project.github.io/helm-charts/
-    chart: opensearch-dashboards
+    chart: opensearch
     targetRevision: 2.19.0
     helm:
       values: |
-        replicaCount: 1
+        clusterName: opensearch-cluster
 
-        service:
-          type: ClusterIP
-          port: 5601
+        nodeGroup: master
+        singleNode: true
+        replicas: 1
 
-        opensearchHosts: "https://opensearch-cluster-master:9200"
-
-        config:
-          opensearch_dashboards.yml: |
-            opensearch.hosts: [ "https://opensearch-cluster-master:9200" ]
-            opensearch.ssl.verificationMode: none
-            opensearch.username: "admin"
-            opensearch.password: "MyStrongTempPassword123!"
+        opensearchJavaOpts: "-Xms512m -Xmx512m"
 
         resources:
           requests:
-            cpu: "200m"
-            memory: "512Mi"
+            cpu: "250m"
+            memory: "1Gi"
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "1000m"
+            memory: "1Gi"
+
+        persistence:
+          enabled: false
+
+        extraEnvs:
+          - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+            value: "MyStrongTempPassword123!"
+
+        service:
+          type: ClusterIP
+
+        config:
+          opensearch.yml: |
+            cluster.name: opensearch-cluster
+            network.host: 0.0.0.0
+            discovery.type: single-node
+
   destination:
     server: https://kubernetes.default.svc
     namespace: opensearch
+
   syncPolicy:
     automated:
       prune: true
