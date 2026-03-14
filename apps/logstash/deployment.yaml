@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+        - name: logstash
+          image: viniciusadams91/logstash-opensearch:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: NASA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-secrets
+                  key: NASA_API_KEY
+            - name: OPENSEARCH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-secrets
+                  key: OPENSEARCH_USER
+            - name: OPENSEARCH_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: logstash-secrets
+                  key: OPENSEARCH_PASS
+
+          volumeMounts:
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline/nasa.conf
+              subPath: nasa.conf
+
+      volumes:
+        - name: pipeline
+          configMap:
+            name: logstash-pipeline

@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  namespace: logging
+data:
+  nasa.conf: |
+    input {
+      http_poller {
+        urls => {
+          nasa => {
+            method => get
+            url => "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}"
+          }
+        }
+
+        schedule => { cron => "0 * * * * UTC" }
+        codec => "json"
+      }
+    }
+
+    filter {
+      mutate {
+        add_field => { "source" => "nasa_apod" }
+      }
+
+      mutate {
+        rename => {
+          "date" => "nasa_date"
+          "title" => "nasa_title"
+          "url" => "media_url"
+        }
+      }
+    }
+
+    output {
+      opensearch {
+        hosts => ["https://opensearch-cluster-master:9200"]
+        user => "${OPENSEARCH_USER}"
+        password => "${OPENSEARCH_PASS}"
+        index => "nasa-apod-%{+YYYY.MM.dd}"
+        ssl => true
+        ssl_certificate_verification => false
+      }
+
+      stdout { codec => rubydebug }
+    }
