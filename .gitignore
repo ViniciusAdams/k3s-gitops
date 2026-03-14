@@ -1,1 +1,2 @@
 apps/secrets/dashboard-secret.yaml
+apps/secrets/logstash-secret.yaml
