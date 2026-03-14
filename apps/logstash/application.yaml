@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/ViniciusAdams/k3s-gitops
     targetRevision: main
-    path: logstash
+    path: apps/logstash
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
