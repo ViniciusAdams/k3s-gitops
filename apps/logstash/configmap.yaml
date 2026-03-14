@@ -10,7 +10,7 @@ data:
         urls => {
           nasa => {
             method => get
-            url => "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}"
+            url => "https://api.nasa.gov/neo/rest/v1/feed?start_date=START_DATE&end_date=END_DATE&api_key=${API_KEY}"
           }
         }
 
@@ -21,24 +21,16 @@ data:
 
     filter {
       mutate {
-        add_field => { "source" => "nasa_apod" }
-      }
-
-      mutate {
-        rename => {
-          "date" => "nasa_date"
-          "title" => "nasa_title"
-          "url" => "media_url"
-        }
+        add_field => { "source" => "nasa_neo" }
       }
     }
 
     output {
       opensearch {
-        hosts => ["https://opensearch-cluster-master:9200"]
+        hosts => ["https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"]
         user => "${OPENSEARCH_USER}"
         password => "${OPENSEARCH_PASS}"
-        index => "nasa-apod-%{+YYYY.MM.dd}"
+        index => "nasa-neo-%{+YYYY.MM.dd}"
         ssl => true
         ssl_certificate_verification => false
       }
