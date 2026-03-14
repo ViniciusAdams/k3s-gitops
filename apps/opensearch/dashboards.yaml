@@ -27,12 +27,24 @@ spec:
             secretName: opensearch-certs
             path: /usr/share/opensearch-dashboards/config/certs
 
+        extraEnvs:
+          - name: OPENSEARCH_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: dashboards-secrets
+                key: OPENSEARCH_USERNAME
+          - name: OPENSEARCH_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: dashboards-secrets
+                key: OPENSEARCH_PASSWORD
+
         config:
           opensearch_dashboards.yml: |
             opensearch.hosts: [ "https://opensearch-cluster-master:9200" ]
             opensearch.ssl.verificationMode: none
-            opensearch.username: "admin"
-            opensearch.password: "admin"
+            opensearch.username: "${OPENSEARCH_USERNAME}"
+            opensearch.password: "${OPENSEARCH_PASSWORD}"
 
         resources:
           requests:
