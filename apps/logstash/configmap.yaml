@@ -4,7 +4,7 @@ metadata:
   name: logstash-pipeline
   namespace: logging
 data:
-  logstash.conf: |
+  nasa.conf: |
     input {
       http_poller {
         # defining one HTTP source called "nasa".
@@ -45,7 +45,7 @@ data:
 
       ruby {
         code => '
-          # flatten the NASA response here.
+          #  flatten the NASA response here.
           # NASA returns near_earth_objects grouped by date.
           # We want one flat list of asteroid objects instead, so it makes more sense for querying.
 
