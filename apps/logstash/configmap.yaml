@@ -1,99 +1,63 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: logstash-pipeline
+  name: logstash-config
   namespace: logging
 data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+
   nasa.conf: |
     input {
       http_poller {
-        # defining one HTTP source called "nasa".
-        # Logstash will call this API on a schedule.
         urls => {
           nasa => {
-            # Use a normal GET request.
             method => get
-
-            # NASA NEO feed endpoint.
-            # The API key is injected from an environment variable coming from a Kubernetes secret.
             url => "https://api.nasa.gov/neo/rest/v1/feed?start_date=2026-03-14&end_date=2026-03-14&api_key=${API_KEY}"
-
-            # Ask NASA to return JSON.
             headers => {
               Accept => "application/json"
             }
           }
         }
 
-        # Run this once every hour, at minute 0, in UTC.
-        # So it will run at 00:00, 01:00, 02:00, etc.
         schedule => { cron => "0 * * * * UTC" }
-
-        # Tell Logstash the response is JSON so it parses it automatically.
         codec => "json"
-
-        # Wait up to 60 seconds before considering the request failed.
         request_timeout => 60
       }
     }
 
     filter {
       mutate {
-        # Add a simple field so later we know these events came from the NASA NEO API as I might add more APIs sources.
         add_field => { "source" => "nasa_neo" }
       }
 
       ruby {
         code => '
-          #  flatten the NASA response here.
-          # NASA returns near_earth_objects grouped by date.
-          # We want one flat list of asteroid objects instead, so it makes more sense for querying.
-
           neo_events = []
-
-          # Read the nested "near_earth_objects" object from the current event.
           neo_map = event.get("near_earth_objects")
 
-          # Only continue if it is actually a hash/object.
           if neo_map.is_a?(Hash)
-
-            # Loop through each date and the list of objects inside that date.
             neo_map.each do |date, objects|
-
-              # Only continue if that date contains an array of asteroids.
               if objects.is_a?(Array)
-
-                # Go one asteroid at a time.
                 objects.each do |obj|
-
-                  # Save the date into the asteroid itself so we do not lose it.
                   obj["neo_reference_date"] = date
-
-                  # Push the asteroid object into our new flat array.
                   neo_events << obj
                 end
               end
             end
           end
 
-          # Store the flattened asteroid array back into the event.
           event.set("neo_events", neo_events)
         '
       }
 
       split {
-        # This is a key step.
-        # If "neo_events" contains many asteroid objects,
-        # Logstash will create one event per asteroid.
         field => "neo_events"
       }
 
       ruby {
         code => '
-          # After split, each event still has the asteroid data nested inside "neo_events".
-          # This block copies every field from "neo_events" to the top level,
-          # so the final document is easier to query in OpenSearch.
-
           neo = event.get("neo_events")
 
           if neo.is_a?(Hash)
@@ -103,10 +67,6 @@ data:
       }
 
       mutate {
-        # Clean up fields we do not want anymore.
-        # "neo_events" is no longer needed because we already copied its contents.
-        # "near_earth_objects" was the original nested NASA structure.
-        # "links" and "@version" are not useful for our index right now.
         remove_field => [
           "neo_events",
           "near_earth_objects",
@@ -117,8 +77,6 @@ data:
 
       if [estimated_diameter][kilometers][estimated_diameter_min] {
         mutate {
-          # Pull out nested diameter values and put them in simpler top-level fields.
-          # This makes searching, charts and aggregations much easier later.
           add_field => {
             "estimated_diameter_min_km" => "%{[estimated_diameter][kilometers][estimated_diameter_min]}"
             "estimated_diameter_max_km" => "%{[estimated_diameter][kilometers][estimated_diameter_max]}"
@@ -128,8 +86,6 @@ data:
 
       if [close_approach_data][0][close_approach_date_full] {
         mutate {
-          # NASA stores close approach data in an array.
-          # Here we pull useful values from the first close approach entry.
           add_field => {
             "close_approach_date_full" => "%{[close_approach_data][0][close_approach_date_full]}"
             "relative_velocity_kph" => "%{[close_approach_data][0][relative_velocity][kilometers_per_hour]}"
@@ -140,8 +96,6 @@ data:
       }
 
       mutate {
-        # Fields added with %{...} often come in as strings.
-        # Convert them to proper numeric/boolean types so OpenSearch handles them correctly.
         convert => {
           "estimated_diameter_min_km" => "float"
           "estimated_diameter_max_km" => "float"
@@ -154,54 +108,29 @@ data:
       }
 
       date {
-        # Use the asteroid reference date as the event timestamp.
-        # This is important because OpenSearch Dashboards usually relies on @timestamp.
         match => [ "neo_reference_date", "yyyy-MM-dd" ]
         target => "@timestamp"
       }
 
       fingerprint {
-        # Build a stable ID using the NASA asteroid "id".
-        # The same asteroid id will always produce the same fingerprint.
         source => ["id"]
-
-        # Store the result in metadata, not in the visible document body.
         target => "[@metadata][document_id]"
-
-        # SHA256 gives a clean, stable hash value.
         method => "SHA256"
       }
     }
 
     output {
       opensearch {
-        # Send the processed event to OpenSearch inside the Kubernetes cluster.
         hosts => ["https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"]
-
-        # Credentials come from Kubernetes secrets via environment variables.
         user => "${OPENSEARCH_USER}"
         password => "${OPENSEARCH_PASS}"
-
-        # Use a daily index pattern.
-        # Example: nasa-neo-2026.03.15
         index => "nasa-neo-%{+YYYY.MM.dd}"
-
-        # This is the important duplicate-prevention line.
-        # Instead of letting OpenSearch generate a random id every time,
-        # we send our own stable id.
         document_id => "%{[@metadata][document_id]}"
-
-        # Use HTTPS.
         ssl => true
-
-        # We disable strict cert verification because this is a local/lab cluster
-        # with self-signed certificates.
         ssl_certificate_verification => false
       }
 
       stdout {
-        # Also print events to the Logstash logs in a readable format.
-        # Very useful while testing and debugging.
         codec => rubydebug
       }
     }

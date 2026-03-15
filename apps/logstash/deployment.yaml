@@ -36,11 +36,17 @@ spec:
                   key: OPENSEARCH_PASS
 
           volumeMounts:
-            - name: pipeline
+            # Mount the pipeline file
+            - name: logstash-config
               mountPath: /usr/share/logstash/pipeline/nasa.conf
               subPath: nasa.conf
 
+            # Mount the Logstash runtime configuration
+            - name: logstash-config
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+
       volumes:
-        - name: pipeline
+        - name: logstash-config
           configMap:
-            name: logstash-pipeline
+            name: logstash-config
