@@ -17,6 +17,7 @@ data:
       http {
         port => 8090
         codec => json_lines
+        max_pending_requests => 200
       }
     }
 
