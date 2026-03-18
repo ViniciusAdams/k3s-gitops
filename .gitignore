@@ -1,2 +1,5 @@
 apps/secrets/dashboard-secret.yaml
 apps/secrets/logstash-secret.yaml
+apps/logstash-spacetrack/secrets/opensearch-secret.yaml
+apps/spacetrackets/spacetrack-secret.
+apps/spacetrack-collector/secrets/spacetrack-secret.yaml

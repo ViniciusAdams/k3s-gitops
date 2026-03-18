@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: spacetrack-collector
+  namespace: spacetrack-collector
+spec:
+  schedule: "17 12 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: collector
+              image: python:3.11-slim
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: SPACE_TRACK_IDENTITY
+                  valueFrom:
+                    secretKeyRef:
+                      name: spacetrack-credentials
+                      key: SPACE_TRACK_IDENTITY
+                - name: SPACE_TRACK_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: spacetrack-credentials
+                      key: SPACE_TRACK_PASSWORD
+                - name: LOGSTASH_URL
+                  value: "http://logstash-spacetrack.logstash-spacetrack.svc.cluster.local:8090"
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  pip install --no-cache-dir requests && python - <<'PY'
+                  import os
+                  import json
+                  import time
+                  import requests
+
+                  SPACE_TRACK_IDENTITY = os.environ["SPACE_TRACK_IDENTITY"]
+                  SPACE_TRACK_PASSWORD = os.environ["SPACE_TRACK_PASSWORD"]
+                  LOGSTASH_URL = os.environ["LOGSTASH_URL"]
+
+                  LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
+                  QUERY_URL = (
+                      "https://www.space-track.org/basicspacedata/query"
+                      "/class/gp"
+                      "/decay_date/null-val"
+                      "/epoch/%3Enow-10"
+                      "/orderby/norad_cat_id asc"
+                      "/format/json"
+                  )
+
+                  session = requests.Session()
+
+                  print("Logging in to Space-Track...")
+                  login_resp = session.post(
+                      LOGIN_URL,
+                      data={
+                          "identity": SPACE_TRACK_IDENTITY,
+                          "password": SPACE_TRACK_PASSWORD
+                      },
+                      timeout=60
+                  )
+                  login_resp.raise_for_status()
+
+                  print("Fetching GP data...")
+                  resp = session.get(QUERY_URL, timeout=120)
+                  resp.raise_for_status()
+
+                  data = resp.json()
+                  print(f"Fetched {len(data)} records")
+
+                  payload = "\n".join(json.dumps(item) for item in data) + "\n"
+
+                  print("Sending data to Logstash...")
+                  send_resp = requests.post(
+                      LOGSTASH_URL,
+                      data=payload,
+                      headers={"Content-Type": "application/x-ndjson"},
+                      timeout=120
+                  )
+                  send_resp.raise_for_status()
+
+                  print(f"Sent {len(data)} records to Logstash successfully")
+                  PY
