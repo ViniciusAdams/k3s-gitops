@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-spacetrack-config
+  namespace: logstash-spacetrack
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+
+  pipelines.yml: |
+    - pipeline.id: spacetrack
+      path.config: "/usr/share/logstash/pipeline/spacetrack.conf"
+
+  spacetrack.conf: |
+    input {
+      http {
+        port => 8090
+        codec => json_lines
+      }
+    }
+
+    filter {
+      mutate {
+        add_field => {
+          "pipeline_name" => "spacetrack"
+          "source_system" => "space-track"
+        }
+      }
+
+      date {
+        match => ["EPOCH", "ISO8601"]
+        target => "@timestamp"
+      }
+
+      mutate {
+        convert => {
+          "NORAD_CAT_ID" => "integer"
+          "MEAN_MOTION" => "float"
+          "ECCENTRICITY" => "float"
+          "INCLINATION" => "float"
+          "RA_OF_ASC_NODE" => "float"
+          "ARG_OF_PERICENTER" => "float"
+          "MEAN_ANOMALY" => "float"
+        }
+      }
+    }
+
+    output {
+      stdout { codec => rubydebug }
+
+      opensearch {
+        hosts => ["https://opensearch-cluster-master:9200"]
+        index => "spacetrack-gp-%{+YYYY.MM.dd}"
+        user => "${OPENSEARCH_USERNAME}"
+        password => "${OPENSEARCH_PASSWORD}"
+        ssl_certificate_verification => false
+      }
+    }
