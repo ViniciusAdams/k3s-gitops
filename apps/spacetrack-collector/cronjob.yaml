@@ -51,6 +51,8 @@ spec:
                       "/format/json"
                   )
 
+                  BATCH_SIZE = 500
+
                   session = requests.Session()
 
                   print("Logging in to Space-Track...")
@@ -71,16 +73,29 @@ spec:
                   data = resp.json()
                   print(f"Fetched {len(data)} records")
 
-                  payload = "\n".join(json.dumps(item) for item in data) + "\n"
+                  def chunks(items, size):
+                      for i in range(0, len(items), size):
+                          yield items[i:i + size]
 
-                  print("Sending data to Logstash...")
-                  send_resp = requests.post(
-                      LOGSTASH_URL,
-                      data=payload,
-                      headers={"Content-Type": "application/x-ndjson"},
-                      timeout=120
-                  )
-                  send_resp.raise_for_status()
+                  sent = 0
 
-                  print(f"Sent {len(data)} records to Logstash successfully")
+                  for batch in chunks(data, BATCH_SIZE):
+                      payload = "\n".join(json.dumps(item) for item in batch) + "\n"
+
+                      print(f"Sending batch {sent} -> {sent + len(batch)}")
+
+                      send_resp = requests.post(
+                          LOGSTASH_URL,
+                          data=payload,
+                          headers={"Content-Type": "application/x-ndjson"},
+                          timeout=300
+                      )
+                      send_resp.raise_for_status()
+
+                      sent += len(batch)
+                      print(f"Sent {sent}/{len(data)} records")
+
+                      time.sleep(1)
+
+                  print("All records sent successfully")
                   PY
