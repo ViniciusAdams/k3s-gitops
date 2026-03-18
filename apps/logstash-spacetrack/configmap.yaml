@@ -50,7 +50,7 @@ data:
       stdout { codec => rubydebug }
 
       opensearch {
-        hosts => ["https://opensearch-cluster-master:9200"]
+        hosts => ["https://opensearch-cluster-master.opensearch:9200"]
         index => "spacetrack-gp-%{+YYYY.MM.dd}"
         user => "${OPENSEARCH_USERNAME}"
         password => "${OPENSEARCH_PASSWORD}"
