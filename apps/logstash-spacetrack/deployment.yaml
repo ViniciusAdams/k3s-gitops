@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: logstash
-          image: viniciusadams91/logstash-opensearch:latest
-          imagePullPolicy: Always
+          image: viniciusadams91/logstash-opensearch:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8090
           env:
