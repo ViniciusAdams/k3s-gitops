@@ -24,12 +24,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: opensearch-credentials
-                  key: username
+                  key: OPENSEARCH_USERNAME
             - name: OPENSEARCH_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: opensearch-credentials
-                  key: password
+                  key: OPENSEARCH_PASSWORD
           volumeMounts:
             - name: config
               mountPath: /usr/share/logstash/config/logstash.yml
