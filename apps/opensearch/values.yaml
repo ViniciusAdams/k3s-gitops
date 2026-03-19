@@ -7,33 +7,32 @@ nodeGroup: master
 singleNode: true
 replicas: 1
 
-opensearchJavaOpts: "-Xms512m -Xmx512m"
+opensearchJavaOpts: "-Xms2g -Xmx2g"
 
 resources:
   requests:
-    cpu: "250m"
-    memory: "1Gi"
+    cpu: "500m"
+    memory: "4Gi"
   limits:
-    cpu: "1000m"
-    memory: "1Gi"
+    cpu: "2"
+    memory: "4Gi"
 
-# persistence enabled for k3s
 persistence:
   enabled: true
   storageClass: local-path
   accessModes:
     - ReadWriteOnce
-  size: 20Gi
+  size: 100Gi
 
-# disable demo installer because we use custom TLS
 extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    value: "MyStrongTempPassword123!"
   - name: DISABLE_INSTALL_DEMO_CONFIG
     value: "true"
 
 service:
   type: ClusterIP
 
-# mount TLS certs from secret
 secretMounts:
   - name: opensearch-certs
     secretName: opensearch-certs
