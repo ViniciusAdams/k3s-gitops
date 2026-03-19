@@ -34,7 +34,7 @@ spec:
           storageClass: local-path
           accessModes:
             - ReadWriteOnce
-          size: 100Gi
+          size: 20Gi
 
         extraEnvs:
           - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
