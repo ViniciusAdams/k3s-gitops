@@ -8,6 +8,17 @@ data:
     http.host: "0.0.0.0"
     xpack.monitoring.enabled: false
 
+    queue.type: persisted
+    queue.max_bytes: 2gb
+    queue.checkpoint.writes: 1024
+    queue.drain: true
+
+    pipeline.workers: 2
+    pipeline.batch.size: 125
+    pipeline.batch.delay: 50
+
+    dead_letter_queue.enable: true
+
   pipelines.yml: |
     - pipeline.id: spacetrack
       path.config: "/usr/share/logstash/pipeline/spacetrack.conf"
@@ -17,7 +28,8 @@ data:
       http {
         port => 8090
         codec => json_lines
-        max_pending_requests => 200
+        max_pending_requests => 50
+        response_code => 202
       }
     }
 
@@ -48,13 +60,12 @@ data:
     }
 
     output {
-      stdout { codec => rubydebug }
-
       opensearch {
         hosts => ["https://opensearch-cluster-master.opensearch.svc.cluster.local:9200"]
         index => "spacetrack-gp-%{+YYYY.MM.dd}"
         user => "${OPENSEARCH_USERNAME}"
         password => "${OPENSEARCH_PASSWORD}"
         ssl_certificate_verification => false
+        document_id => "%{doc_id}"
       }
     }
