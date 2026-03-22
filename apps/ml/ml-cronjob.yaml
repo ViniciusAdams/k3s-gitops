@@ -1,35 +1,23 @@
 apiVersion: batch/v1
-kind: CronJob
+kind: Job
 metadata:
   name: ml-pipeline
 spec:
-  schedule: "*/15 * * * *"
-
- 
-  concurrencyPolicy: Forbid
-
-
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
-
-  jobTemplate:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  template:
     spec:
-     
-      backoffLimit: 1
+      containers:
+        - name: ml-pipeline
+          image: viniciusadams91/ml-app:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: ml-config
+            - secretRef:
+                name: ml-secret
+      restartPolicy: Never
 
-      
-      ttlSecondsAfterFinished: 300
+      #kubectl apply -f job.yaml
 
-      template:
-        spec:
-          containers:
-            - name: ml-pipeline
-              image: viniciusadams91/ml-app:latest
-              imagePullPolicy: Always
-              envFrom:
-                - configMapRef:
-                    name: ml-config
-                - secretRef:
-                    name: ml-secret
-
-          restartPolicy: Never
+      #kubectl create job --from=cronjob/ml-pipeline ml-pipeline-test -n default
