@@ -27,6 +27,7 @@ spec:
                       key: SPACE_TRACK_PASSWORD
                 - name: LOGSTASH_URL
                   value: "http://logstash-spacetrack.logstash-spacetrack.svc.cluster.local:8090"
+
               command:
                 - /bin/sh
                 - -c
@@ -42,16 +43,21 @@ spec:
                   LOGSTASH_URL = os.environ["LOGSTASH_URL"]
 
                   LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
+
+                  # only fetch dat for one day
                   QUERY_URL = (
                       "https://www.space-track.org/basicspacedata/query"
                       "/class/gp"
                       "/decay_date/null-val"
-                      "/epoch/%3Enow-10"
+                      "/epoch/%3Enow-1"
                       "/orderby/norad_cat_id asc"
                       "/format/json"
                   )
 
-                  BATCH_SIZE = 500
+                  # batching and retry parameters
+                  BATCH_SIZE = 100
+                  MAX_RETRIES = 6
+                  BASE_SLEEP = 2
 
                   session = requests.Session()
 
@@ -77,25 +83,65 @@ spec:
                       for i in range(0, len(items), size):
                           yield items[i:i + size]
 
+                  def post_with_retry(payload):
+                      for attempt in range(MAX_RETRIES):
+                          try:
+                              r = requests.post(
+                                  LOGSTASH_URL,
+                                  data=payload,
+                                  headers={"Content-Type": "application/x-ndjson"},
+                                  timeout=180
+                              )
+
+                              if r.status_code == 429:
+                                  sleep_s = BASE_SLEEP * (2 ** attempt)
+                                  print(f"Logstash busy (429). Retrying in {sleep_s}s")
+                                  time.sleep(sleep_s)
+                                  continue
+
+                              if 500 <= r.status_code < 600:
+                                  sleep_s = BASE_SLEEP * (2 ** attempt)
+                                  print(f"Server error {r.status_code}. Retrying in {sleep_s}s")
+                                  time.sleep(sleep_s)
+                                  continue
+
+                              r.raise_for_status()
+                              return
+
+                          except requests.exceptions.Timeout:
+                              sleep_s = BASE_SLEEP * (2 ** attempt)
+                              print(f"Timeout. Retrying in {sleep_s}s")
+                              time.sleep(sleep_s)
+
+                          except requests.exceptions.RequestException as e:
+                              if attempt == MAX_RETRIES - 1:
+                                  raise
+                              sleep_s = BASE_SLEEP * (2 ** attempt)
+                              print(f"Request failed: {e}. Retrying in {sleep_s}s")
+                              time.sleep(sleep_s)
+
+                      raise RuntimeError("Failed to send payload after retries")
+
                   sent = 0
 
                   for batch in chunks(data, BATCH_SIZE):
+
+                      # deduplicate and create document IDs
+                      for item in batch:
+                          norad = item.get("NORAD_CAT_ID", "unknown")
+                          epoch = item.get("EPOCH", "unknown")
+                          item["doc_id"] = f"{norad}-{epoch}"
+
                       payload = "\n".join(json.dumps(item) for item in batch) + "\n"
 
                       print(f"Sending batch {sent} -> {sent + len(batch)}")
 
-                      send_resp = requests.post(
-                          LOGSTASH_URL,
-                          data=payload,
-                          headers={"Content-Type": "application/x-ndjson"},
-                          timeout=300
-                      )
-                      send_resp.raise_for_status()
+                      post_with_retry(payload)
 
                       sent += len(batch)
                       print(f"Sent {sent}/{len(data)} records")
 
-                      time.sleep(1)
+                      
 
                   print("All records sent successfully")
                   PY
