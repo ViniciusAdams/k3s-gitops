@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ml-pipeline
+spec:
+  schedule: "*/15 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: ml-pipeline
+              image: viniciusadams91/ml-app:latest
+              imagePullPolicy: Always
+              envFrom:
+                - configMapRef:
+                    name: ml-config
+                - secretRef:
+                    name: ml-secret
+          restartPolicy: Never
