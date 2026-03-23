@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ml-pipeline
+spec:
+  backoffLimit: 
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: viniciusadams91/ml-app:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: ml-config
+            - secretRef:
+                name: ml-secret
+      restartPolicy: Never
+
+      #kubectl apply -f job.yaml
+
+      #kubectl create job --from=cronjob/ml-pipeline ml-pipeline-test -n default
