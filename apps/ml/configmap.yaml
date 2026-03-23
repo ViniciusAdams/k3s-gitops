@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: ml-config
 data:
-  OPENSEARCH_HOST: "opensearch-cluster-master"
+  OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
   OPENSEARCH_PORT: "9200"
   USE_SSL: "true"
   VERIFY_CERTS: "false"
