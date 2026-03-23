@@ -18,7 +18,10 @@ spec:
                 name: ml-config
             - secretRef:
                 name: ml-secret
-
-      #kubectl apply -f job.yaml
-
-      #kubectl create job --from=cronjob/ml-pipeline ml-pipeline-test -n default
+          volumeMounts:
+            - name: ml-data
+              mountPath: /data
+      volumes:
+        - name: ml-data
+          persistentVolumeClaim:
+            claimName: ml-pipeline-pvc
