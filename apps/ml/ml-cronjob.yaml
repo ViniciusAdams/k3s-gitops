@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: ml-pipeline
 spec:
-  backoffLimit: 0
+  backoffLimit: 0.
   ttlSecondsAfterFinished: 300
   template:
     spec:
