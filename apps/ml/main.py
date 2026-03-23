@@ -1,6 +1,7 @@
 from opensearchpy import OpenSearch
 import os
 import json
+import sys
 
 
 def get_required_env(name: str) -> str:
@@ -24,37 +25,75 @@ def get_client():
         http_auth=(user, password),
         use_ssl=use_ssl,
         verify_certs=verify_certs,
+        timeout=30,          # socket timeout
+        max_retries=2,
+        retry_on_timeout=True,
     )
 
 
 def main():
-    index_name = get_required_env("SOURCE_INDEX")
-    client = get_client()
+    try:
+        index_name = get_required_env("SOURCE_INDEX")
+        client = get_client()
 
-    print("Starting ML pipeline job...")
-    print(f"OpenSearch host: {os.getenv('OPENSEARCH_HOST')}")
-    print(f"Index: {index_name}")
+        print("Starting ML pipeline job...")
+        print(f"OpenSearch host: {os.getenv('OPENSEARCH_HOST')}")
+        print(f"Index: {index_name}")
 
-    print("Testing connection...")
-    print(json.dumps(client.info(), indent=2, default=str))
+        print("Testing connection...")
+        info = client.info(request_timeout=15)
+        print(json.dumps(info, indent=2, default=str))
 
-    print(f"Reading from index: {index_name}")
-    response = client.search(
-        index=index_name,
-        body={
-            "size": 5,
-            "query": {
-                "match_all": {}
-            }
-        }
-    )
+        batch_size = 100
+        total_fetched = 0
+        page = 0
 
-    hits = response.get("hits", {}).get("hits", [])
-    print(f"Fetched {len(hits)} documents")
+        print(f"Reading from index: {index_name}")
 
-    for i, hit in enumerate(hits, start=1):
-        print(f"\nDocument {i}:")
-        print(json.dumps(hit.get("_source", {}), indent=2, default=str))
+        response = client.search(
+            index=index_name,
+            body={
+                "size": batch_size,
+                "sort": [{"_id": "asc"}],
+                "query": {"match_all": {}}
+            },
+            request_timeout=30
+        )
+
+        hits = response.get("hits", {}).get("hits", [])
+
+        while hits:
+            page += 1
+            print(f"Processing batch {page} with {len(hits)} documents")
+
+            for hit in hits:
+                total_fetched += 1
+                source = hit.get("_source", {})
+                doc_id = hit.get("_id", "unknown")
+                print(f"Document {total_fetched} | ID: {doc_id}")
+                print(json.dumps(source, indent=2, default=str))
+
+            last_sort = hits[-1].get("sort")
+            if not last_sort:
+                break
+
+            response = client.search(
+                index=index_name,
+                body={
+                    "size": batch_size,
+                    "sort": [{"_id": "asc"}],
+                    "search_after": last_sort,
+                    "query": {"match_all": {}}
+                },
+                request_timeout=30
+            )
+            hits = response.get("hits", {}).get("hits", [])
+
+        print(f"Job completed successfully. Total documents fetched: {total_fetched}")
+
+    except Exception as e:
+        print(f"Job failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

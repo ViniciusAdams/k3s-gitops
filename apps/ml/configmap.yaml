@@ -7,4 +7,4 @@ data:
   OPENSEARCH_PORT: "9200"
   USE_SSL: "true"
   VERIFY_CERTS: "false"
-  SOURCE_INDEX: "spacetrack-gp-2026.03.22"
+  SOURCE_INDEX: "spacetrack-gp-2026.03.15"
