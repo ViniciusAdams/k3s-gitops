@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: ml-pipeline
+  namespace: ml
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 600
