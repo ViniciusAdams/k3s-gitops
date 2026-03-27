@@ -3,4 +3,4 @@ apps/secrets/logstash-secret.yaml
 apps/logstash-spacetrack/secrets/opensearch-secret.yaml
 apps/spacetrackets/spacetrack-secret.
 apps/spacetrack-collector/secrets/spacetrack-secret.yaml
-apps/ml/secrets/ml_secret.yaml
+apps/ml/secrets/ml-secret.yaml
