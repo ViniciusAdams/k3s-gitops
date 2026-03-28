@@ -19,10 +19,3 @@ spec:
                 name: ml-config
             - secretRef:
                 name: ml-secret
-          volumeMounts:
-            - name: ml-data
-              mountPath: /data
-      volumes:
-        - name: ml-data
-          persistentVolumeClaim:
-            claimName: ml-pipeline-pvc

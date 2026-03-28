@@ -4,7 +4,9 @@ metadata:
   name: logstash-spacetrack-config
   namespace: logstash-spacetrack
 data:
+  #logstash core settings
   logstash.yml: |
+    # listen on all network interfaces, so logstash can receive data from other pods in the cluster
     http.host: "0.0.0.0"
     xpack.monitoring.enabled: false
 
