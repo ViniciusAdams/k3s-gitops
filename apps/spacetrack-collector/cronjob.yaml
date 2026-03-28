@@ -160,6 +160,7 @@ spec:
                       for item in batch:
                           norad = item.get("NORAD_CAT_ID", "unknown")
                           epoch = item.get("EPOCH", "unknown")
+                          # sends to logstash the doc_id and that what generates the unique identidier
                           item["doc_id"] = f"{norad}-{epoch}"
 
                       payload = "\n".join(json.dumps(item) for item in batch) + "\n"

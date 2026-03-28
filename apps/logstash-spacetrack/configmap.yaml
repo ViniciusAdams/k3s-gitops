@@ -8,6 +8,7 @@ data:
   logstash.yml: |
     # listen on all network interfaces, so logstash can receive data from other pods in the cluster
     http.host: "0.0.0.0"
+    #disabling xpack monitoring because I don't need it and it can cause performance issues,might add in the future
     xpack.monitoring.enabled: false
 
     queue.type: persisted
@@ -68,6 +69,7 @@ data:
         user => "${OPENSEARCH_USERNAME}"
         password => "${OPENSEARCH_PASSWORD}"
         ssl_certificate_verification => false
+        #most important line of code where is where the unique document id is generated for each record, this is important to prevent duplicates in opensearch and to allow for updates if the same record is ingested again
         document_id => "%{doc_id}"
       }
     }
