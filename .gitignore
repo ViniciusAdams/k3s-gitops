@@ -4,4 +4,3 @@ apps/logstash-spacetrack/secrets/opensearch-secret.yaml
 apps/spacetrackets/spacetrack-secret.
 apps/spacetrack-collector/secrets/spacetrack-secret.yaml
 apps/ml/secrets/ml-secret.yaml
-apps/ml/ml-cronjob.yaml
