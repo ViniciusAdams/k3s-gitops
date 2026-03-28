@@ -1,3 +1,4 @@
+# This file defines a Kubernetes CronJob that runs daily to fetch data from Space-Track and send it to Logstash.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -29,15 +30,16 @@ spec:
                   value: "http://logstash-spacetrack.logstash-spacetrack.svc.cluster.local:8090"
 
               command:
+              #Import standard libraries
                 - /bin/sh
                 - -c
                 - |
                   pip install --no-cache-dir requests && python - <<'PY'
-                  import os
-                  import json
-                  import time
-                  import requests
-
+                  import os #to read environment variables
+                  import json #to convert the data to JSON format
+                  import time # for retry delays
+                  import requests # to make HTTP cllas (API + logsyash)
+                  # secrets on /secrets folder
                   SPACE_TRACK_IDENTITY = os.environ["SPACE_TRACK_IDENTITY"]
                   SPACE_TRACK_PASSWORD = os.environ["SPACE_TRACK_PASSWORD"]
                   LOGSTASH_URL = os.environ["LOGSTASH_URL"]
@@ -45,6 +47,11 @@ spec:
                   LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 
                   # only fetch dat for one day
+                  # buildig the query, /class/gp = general perturbations
+                  #/decay_null/null-val = only object that havent decayed that means only the ones that are in orbit
+                  #epoch -1 means basicaly the last 24 hours
+                  #orderby/norad_cat_id asc = order the data by norad_cat_id in ascending order norad id is bascially the object id
+                  #format/json = return the data in json format
                   QUERY_URL = (
                       "https://www.space-track.org/basicspacedata/query"
                       "/class/gp"
@@ -55,12 +62,15 @@ spec:
                   )
 
                   # batching and retry parameters
+                  #batch size basically sends only 100 registries time after time to logstash, this is to avoid overwhelming logstash and also to avoid timeouts
+                  #if it fails because it can fail it can retrey 6 times , so argo dosent brake
+                  #initical sleep time is 2 seconds and it doubles every time it retries, this is to avoid overwhelming logstash if it is busy, has happend before
                   BATCH_SIZE = 100
                   MAX_RETRIES = 6
                   BASE_SLEEP = 2
-
+                  # create a session to persist cookies and connection pooling
                   session = requests.Session()
-
+                  #this piece of code is responsible for making the post in the endpoint of login, username and password are send in the body of the request and there is a timeout of 60s
                   print("Logging in to Space-Track...")
                   login_resp = session.post(
                       LOGIN_URL,
@@ -70,49 +80,59 @@ spec:
                       },
                       timeout=60
                   )
+                  #if the login faills it will return an error
                   login_resp.raise_for_status()
-
+                  #if the login is successful it will print the message and continue to fetch the data
+                  #it searchs for the data in the endpoint defined in QUERY_URL and there is a timeout of 120s because sometimes it can take a while to fetch the data, if it fails it will return an error
+                  #it works as a session because it keeps the cookies and the connection alive, so it is more efficient than making a new request every time
+                  #after making a request it prints the number of records fetched and then it sends the data to logstash in batches, if logstash is busy it will retry with an exponential backoff strategy, if it fails after all retries it will raise an error and the cronjob will be marked as failed, but if it succeeds it will print a message and the cronjob will be marked as successful
                   print("Fetching GP data...")
                   resp = session.get(QUERY_URL, timeout=120)
                   resp.raise_for_status()
-
+                  #brake the list on chunkces of data if it has 408 registres it will generate size 100
+                  #avoiding overwhelming logstash  
                   data = resp.json()
                   print(f"Fetched {len(data)} records")
 
                   def chunks(items, size):
                       for i in range(0, len(items), size):
                           yield items[i:i + size]
-
+                  #defines a functions that trys to send a chunck ofdata to logstash and it retries if it fails error 429
                   def post_with_retry(payload):
+                      # defines a function that trys to send a chunck of data to logstash and it retries again 6 times
                       for attempt in range(MAX_RETRIES):
                           try:
+                          # that's very explanatory, it send the data to logstash LOGSTASH URL IS the logstash endpoint defined in enviroment varlable in this script
+                          # the data = payload is the contect that will be showed
+                          #content type is the format 
+
                               r = requests.post(
                                   LOGSTASH_URL,
                                   data=payload,
                                   headers={"Content-Type": "application/x-ndjson"},
                                   timeout=180
                               )
-
+                            #exponential backoff strategy, if logstash is busy it will retry with an exponential backoff strategy, if it fails after all retries it will raise an error and the cronjob will be marked as failed, but if it succeeds it will print a message and the cronjob will be marked as successful
                               if r.status_code == 429:
                                   sleep_s = BASE_SLEEP * (2 ** attempt)
                                   print(f"Logstash busy (429). Retrying in {sleep_s}s")
                                   time.sleep(sleep_s)
                                   continue
-
+                              #if there is an eorr it retries
                               if 500 <= r.status_code < 600:
                                   sleep_s = BASE_SLEEP * (2 ** attempt)
                                   print(f"Server error {r.status_code}. Retrying in {sleep_s}s")
                                   time.sleep(sleep_s)
                                   continue
-
+                              #if there is no erro it validates the response and returns getting of the function
                               r.raise_for_status()
                               return
-
+                          # if the request expire or there is any other error it retries
                           except requests.exceptions.Timeout:
                               sleep_s = BASE_SLEEP * (2 ** attempt)
                               print(f"Timeout. Retrying in {sleep_s}s")
                               time.sleep(sleep_s)
-
+                          # if there is any other error it retries, but if it is the last attempt it raises the error and the cronjob will be marked as failed
                           except requests.exceptions.RequestException as e:
                               if attempt == MAX_RETRIES - 1:
                                   raise
@@ -123,7 +143,17 @@ spec:
                       raise RuntimeError("Failed to send payload after retries")
 
                   sent = 0
-
+                  # goes trough each chunck (size) of data
+                  # this part is the most important 
+                  # it goes trough each chunck of data and creates an identifier for each record using the norad_cat_id and the epoch, avoiding duplicates
+                  # example= NORAD_CAT_ID = 12345 and EPOCH = 2026-03-15T12:00:00.000Z the doc_id will be 12345-2026-03-15T12:00:00.000Z
+                  # what the DOC id actually means, it represent an orbital state of an obect on a specific date, that will happen in the future so I can plot the future position of the obeject with the SGP4 algorithm, and also I can track the history of the object, because if I have the same norad_cat_id with different epoch it means that the object is still in orbit and I can track its position over time, if I have the same norad_cat_id with the same epoch it means that it is a duplicate and I can ignore it, if I have a norad_cat_id with an epoch that is in the past it means that the object has decayed and I can ignore it, if I have a norad_cat_id with an epoch that is in the future it means that the object is still in orbit and I can track its position over time
+                  # it is not the ID of the satelite, it's the ID of the orbital state of the satelite on a specific date, because the same satelite can have different orbital states on different dates, and I want to track the history of the satelite and also plot its future position, so I need to have an identifier for each orbital state, that is what the doc_id represents.
+                  # why that is so important, because if I have duplicates in logstash it can cause problems with the visualization in kibana(opensearch dashboards), because it can show the same object multiple times and it can also cause problems with the performance of logstash and opensearch, because it can store a lot of duplicate data that is not useful, and also it can cause problems with the SGP4 algorithm, because if I have duplicates it can show the same object in different positions at the same time, which is not correct, so by creating a unique identifier for each orbital state I can avoid duplicates and also I can track the history of the object and plot its future position correctly.
+                  # example obejct 1234 at 10:00, object 1234 at 11:00 all of them are the same object but in different positions
+                  # So the NORAD_CAT_ID by it self is not sufficient the EPOCH has to be added creating an unique ID for each orbital state, that is what the doc_id represents, and it is used as the document ID in logstash, so if I have the same doc_id it means that it is a duplicate and logstash will ignore it, if I have a different doc_id it means that it is a different orbital state and logstash will store it, so by creating a unique identifier for each orbital state I can avoid duplicates and also I can track the history of the object and plot its future position correctly.
+                  # after on the logstash , there is document_id => "%{doc_id}, use the doc_id as the id of the document in the logstash do Opensearch will record the document as they key
+                  # practical example, if I have the same object with the same epoch it means that it is a duplicate and logstash will ignore it, if I have the same object with a different epoch it means that it is a different orbital state and logstash will store it, so by creating a unique identifier for each orbital state I can avoid duplicates and also I can track the history of the object and plot its future position correctly.
                   for batch in chunks(data, BATCH_SIZE):
 
                       # deduplicate and create document IDs
