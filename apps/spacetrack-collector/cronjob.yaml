@@ -16,7 +16,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: spacetrack-ingest
-              image: viniciusadams91/spacetrack-ingest:1.0.0
+              image: viniciusadams91/spacetrack-ingest:1.0.1
               imagePullPolicy: IfNotPresent
               env:
                 - name: SPACE_TRACK_IDENTITY
