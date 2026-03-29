@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY spacetrack-collector.py .
 
-CMD ["python", "/app/spacetrack-collector/spacetrack-collector.py"]
+CMD ["python", "/app/spacetrack-collector.py"]
