@@ -9,28 +9,29 @@ import pandas as pd
 import numpy as np
 from opensearchpy import OpenSearch
 
-
+#function to read enviroment variables
 def get_env(name: str, default: str = None, required: bool = False) -> str:
     value = os.getenv(name, default)
     if required and not value:
         raise ValueError(f"Missing required environment variable: {name}")
     return value
 
-
+# reads an enviroment variable and converts into true ot false 
+#example if the enviroment variable is set to "true", "1", "yes" or "y" it will return true, otherwise it will return false
 def get_bool_env(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "y"}
 
-
+#reads the enviroment variable and converts it to an interger
 def get_int_env(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None:
         return default
     return int(value)
 
-
+# this is the part that talk with space track,login,session cookies query url and repeated http request
 class SpaceTrackClient:
     LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
     BASE_QUERY_URL = "https://www.space-track.org/basicspacedata/query"
@@ -41,7 +42,7 @@ class SpaceTrackClient:
         self.timeout_login = timeout_login
         self.timeout_query = timeout_query
         self.session = requests.Session()
-
+#when creating the client, it will automatically login to space track and store the session cookies for future requests
     def login(self) -> None:
         print("Logging in to Space-Track...")
         response = self.session.post(
@@ -54,7 +55,10 @@ class SpaceTrackClient:
         )
         response.raise_for_status()
         print("Login successful")
-
+#building the query url for fetching GP data, it will use the lookback_days parameter to filter the data by epoch date
+#/class/gp = fetch General Pertubations orbital records
+# only return objects without adecay state so still in orbit
+#
     def build_gp_query_url(self, lookback_days: int) -> str:
         return (
             f"{self.BASE_QUERY_URL}"
@@ -64,7 +68,7 @@ class SpaceTrackClient:
             f"/orderby/norad_cat_id asc"
             f"/format/json"
         )
-
+#fetch the data from space track using the built query url, it will return a list of dictionaries containing the GP data
     def fetch_gp_data(self, lookback_days: int = 1) -> List[Dict[str, Any]]:
         query_url = self.build_gp_query_url(lookback_days)
         print(f"Fetching GP data for last {lookback_days} day(s)...")
@@ -78,11 +82,12 @@ class SpaceTrackClient:
         print(f"Fetched {len(data)} records from Space-Track")
         return data
 
-
+#Standardize the raw datagrame from Space-track
+#this is the main cleaning step before Opensearch Indexing
 def standardize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    # Parse dates
+    # Convert know date fieldst to real UTC datetimes
     date_columns = ["EPOCH", "LAUNCH_DATE", "DECAY_DATE", "CREATION_DATE"]
     for col in date_columns:
         if col in df.columns:
