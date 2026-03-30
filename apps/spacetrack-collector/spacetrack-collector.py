@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import requests
+#importing pandas 
 import pandas as pd
 import numpy as np
+#Open search client library 
 from opensearchpy import OpenSearch
 
 #function to read enviroment variables
@@ -18,6 +20,7 @@ def get_env(name: str, default: str = None, required: bool = False) -> str:
 
 # reads an enviroment variable and converts into true ot false 
 #example if the enviroment variable is set to "true", "1", "yes" or "y" it will return true, otherwise it will return false
+# "true",1 yes , y, anything else is false
 def get_bool_env(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -26,17 +29,25 @@ def get_bool_env(name: str, default: bool = False) -> bool:
 
 #reads the enviroment variable and converts it to an interger
 def get_int_env(name: str, default: int) -> int:
+    # Read the enviroment variable 
     value = os.getenv(name)
+    # if it does not exist return the integer value
     if value is None:
+    #Convert the value to an integer and return it    
         return default
     return int(value)
 
 # this is the part that talk with space track,login,session cookies query url and repeated http request
+#responsible for handling communication with space-track, it manages login, session cookies, query URL creation and data dowload
 class SpaceTrackClient:
+    # login endpoint for space track authentication
     LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
+    #base URL or space track queries
     BASE_QUERY_URL = "https://www.space-track.org/basicspacedata/query"
 
+    #Constructor for the SpaceTrackClient, it takes the identity and password for space track login, as well as optional timeouts for login and query operations
     def __init__(self, identity: str, password: str, timeout_login: int = 60, timeout_query: int = 180):
+        #Store the provided parameters as instance variables and create a requests session for persistent connections and cookie management
         self.identity = identity
         self.password = password
         self.timeout_login = timeout_login
