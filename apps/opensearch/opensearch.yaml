@@ -23,11 +23,11 @@ spec:
 
         resources:
           requests:
-            cpu: "500m"
-            memory: "4Gi"
+            cpu: "1"
+            memory: "6Gi"
           limits:
             cpu: "2"
-            memory: "4Gi"
+            memory: "6Gi"
 
         persistence:
           enabled: true
