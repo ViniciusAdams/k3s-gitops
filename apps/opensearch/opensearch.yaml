@@ -19,15 +19,15 @@ spec:
         singleNode: true
         replicas: 1
 
-        opensearchJavaOpts: "-Xms2g -Xmx2g"
+        opensearchJavaOpts: "-Xms4g -Xmx4g"
 
         resources:
           requests:
             cpu: "1"
-            memory: "6Gi"
+            memory: "8Gi"
           limits:
             cpu: "2"
-            memory: "6Gi"
+            memory: "8Gi"
 
         persistence:
           enabled: true
